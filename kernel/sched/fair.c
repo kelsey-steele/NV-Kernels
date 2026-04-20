@@ -12772,7 +12772,8 @@ static void set_cpu_sd_state_busy(int cpu)
 		goto unlock;
 	sd->nohz_idle = 0;
 
-	atomic_inc(&sd->shared->nr_busy_cpus);
+	if (sd->shared)
+		atomic_inc(&sd->shared->nr_busy_cpus);
 unlock:
 	rcu_read_unlock();
 }
@@ -12802,7 +12803,8 @@ static void set_cpu_sd_state_idle(int cpu)
 		goto unlock;
 	sd->nohz_idle = 1;
 
-	atomic_dec(&sd->shared->nr_busy_cpus);
+	if (sd->shared)
+		atomic_dec(&sd->shared->nr_busy_cpus);
 unlock:
 	rcu_read_unlock();
 }
