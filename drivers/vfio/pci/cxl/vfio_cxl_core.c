@@ -234,6 +234,15 @@ int vfio_pci_cxl_acquire(struct vfio_pci_core_device *vdev)
 	u16 dvsec;
 	int rc;
 
+	/*
+	 * Honour the per-device opt-out (set by vfio-pci's module
+	 * parameter disable_cxl, or by a variant driver before
+	 * registration).  Returning -ENODEV here makes the caller
+	 * treat this device as plain vfio-pci.
+	 */
+	if (vdev->disable_cxl)
+		return -ENODEV;
+
 	if (!pcie_is_cxl(pdev))
 		return -ENODEV;
 
