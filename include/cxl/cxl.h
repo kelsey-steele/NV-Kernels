@@ -338,4 +338,6 @@ int cxl_set_capacity(struct cxl_dev_state *cxlds, u64 capacity);
 
 int cxl_get_hdm_info(struct cxl_dev_state *cxlds, u8 *count,
 		     resource_size_t *offset, resource_size_t *size);
+
+int cxl_await_range_active(struct cxl_dev_state *cxlds);
 #endif /* __CXL_CXL_H__ */
