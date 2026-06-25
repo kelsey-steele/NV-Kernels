@@ -215,6 +215,7 @@ struct vfio_device_info {
 #define VFIO_DEVICE_FLAGS_FSL_MC (1 << 6)	/* vfio-fsl-mc device */
 #define VFIO_DEVICE_FLAGS_CAPS	(1 << 7)	/* Info supports caps */
 #define VFIO_DEVICE_FLAGS_CDX	(1 << 8)	/* vfio-cdx device */
+#define VFIO_DEVICE_FLAGS_CXL	(1 << 9)	/* vfio-cxl Type-2 device */
 	__u32	num_regions;	/* Max region index + 1 */
 	__u32	num_irqs;	/* Max IRQ index + 1 */
 	__u32   cap_offset;	/* Offset within info struct of first cap */
@@ -255,6 +256,36 @@ struct vfio_device_info_cap_pci_atomic_comp {
 #define VFIO_PCI_ATOMIC_COMP64	(1 << 1)
 #define VFIO_PCI_ATOMIC_COMP128	(1 << 2)
 	__u32 reserved;
+};
+
+/*
+ * VFIO_DEVICE_INFO capability for CXL Type-2 passthrough devices.
+ * Present when VFIO_DEVICE_FLAGS_CXL is set on vfio_device_info::flags.
+ *
+ * @flags: VFIO_CXL_CAP_HOST_FIRMWARE_COMMITTED indicates the host CXL
+ *	subsystem committed the endpoint HDM decoder.
+ * @hdm_region_idx: VFIO region index for the HDM memory region
+ *	(subtype VFIO_REGION_SUBTYPE_CXL).
+ * @comp_reg_region_idx: VFIO region index for the CXL Component
+ *	Register shadow (subtype VFIO_REGION_SUBTYPE_CXL_COMP_REGS).
+ * @comp_reg_bar: PCI BAR index that contains the CXL component
+ *	register block.  Get-region-info on this BAR returns a
+ *	VFIO_REGION_INFO_CAP_SPARSE_MMAP that excludes the CXL block.
+ * @comp_reg_offset: byte offset of the CXL component register block
+ *	within @comp_reg_bar.
+ * @comp_reg_size: byte size of the CXL component register block.
+ */
+#define VFIO_DEVICE_INFO_CAP_CXL		6
+struct vfio_device_info_cap_cxl {
+	struct vfio_info_cap_header header;
+	__u32 flags;
+#define VFIO_CXL_CAP_HOST_FIRMWARE_COMMITTED	(1 << 0)
+	__u32 hdm_region_idx;
+	__u32 comp_reg_region_idx;
+	__u32 comp_reg_bar;
+	__u32 __resv;
+	__u64 comp_reg_offset;
+	__u64 comp_reg_size;
 };
 
 /**
@@ -424,6 +455,21 @@ struct vfio_region_gfx_edid {
 #define VFIO_REGION_SUBTYPE_CCW_ASYNC_CMD	(1)
 #define VFIO_REGION_SUBTYPE_CCW_SCHIB		(2)
 #define VFIO_REGION_SUBTYPE_CCW_CRW		(3)
+
+/*
+ * sub-types for VFIO_REGION_TYPE_PCI_VENDOR (vendor id 1e98 reserved
+ * for the CXL Consortium); used by vfio-cxl Type-2 device passthrough.
+ *
+ * VFIO_REGION_SUBTYPE_CXL exposes the HDM-backed device memory range
+ *   as a mappable region.  The range is allocated by the host CXL
+ *   subsystem and the VMM is expected to mmap() it.
+ * VFIO_REGION_SUBTYPE_CXL_COMP_REGS exposes the CXL Component Register
+ *   block (read-write via pread()/pwrite() only, no mmap()).  The VMM
+ *   reads and writes HDM Decoder Capability registers through this
+ *   shadow region instead of touching hardware directly.
+ */
+#define VFIO_REGION_SUBTYPE_CXL			(1)
+#define VFIO_REGION_SUBTYPE_CXL_COMP_REGS	(2)
 
 /* sub-types for VFIO_REGION_TYPE_MIGRATION */
 #define VFIO_REGION_SUBTYPE_MIGRATION_DEPRECATED (1)
