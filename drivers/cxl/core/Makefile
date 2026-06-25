@@ -22,3 +22,4 @@ cxl_core-$(CONFIG_CXL_EDAC_MEM_FEATURES) += edac.o
 cxl_core-$(CONFIG_CXL_RAS) += ras.o
 cxl_core-$(CONFIG_CXL_RAS) += ras_rch.o
 cxl_core-$(CONFIG_CXL_ATL) += atl.o
+cxl_core-$(CONFIG_CXL_VFIO_PASSTHROUGH) += passthrough.o

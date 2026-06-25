@@ -20,6 +20,13 @@ menuconfig CXL_BUS
 
 if CXL_BUS
 
+config CXL_VFIO_PASSTHROUGH
+	bool
+	# Hidden symbol selected by VFIO_PCI_CXL to pull
+	# drivers/cxl/core/passthrough.c into cxl_core when a vfio
+	# Type-2 passthrough consumer is configured.  Keep silent: no
+	# help text, no default, no user-visible prompt.
+
 config CXL_PCI
 	tristate "PCI manageability"
 	default CXL_BUS
