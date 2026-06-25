@@ -181,6 +181,7 @@ struct cxl_reg_map {
 	int id;
 	unsigned long offset;
 	unsigned long size;
+	u8 count;
 };
 
 struct cxl_component_reg_map {
@@ -334,4 +335,7 @@ struct cxl_memdev *devm_cxl_probe_mem(struct cxl_dev_state *cxlds,
 				      struct range *range);
 
 int cxl_set_capacity(struct cxl_dev_state *cxlds, u64 capacity);
+
+int cxl_get_hdm_info(struct cxl_dev_state *cxlds, u8 *count,
+		     resource_size_t *offset, resource_size_t *size);
 #endif /* __CXL_CXL_H__ */
