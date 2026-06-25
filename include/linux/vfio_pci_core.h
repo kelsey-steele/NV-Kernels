@@ -143,6 +143,13 @@ struct vfio_pci_core_device {
 	struct notifier_block	nb;
 	struct rw_semaphore	memory_lock;
 	struct list_head	dmabufs;
+	/*
+	 * Opaque pointer to struct vfio_pci_cxl_state (defined in
+	 * drivers/vfio/pci/cxl/vfio_cxl_priv.h).  Set by
+	 * vfio_pci_cxl_acquire() at PCI bind; NULL on non-CXL devices
+	 * and when CONFIG_VFIO_PCI_CXL=n.
+	 */
+	void			*cxl;
 };
 
 enum vfio_pci_io_width {

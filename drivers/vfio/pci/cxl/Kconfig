@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config VFIO_PCI_CXL
+	bool "VFIO support for CXL Type-2 device passthrough"
+	depends on VFIO_PCI_CORE
+	depends on CXL_BUS
+	depends on CXL_REGION
+	depends on CXL_MEM
+	# CXL providers are tristate; refuse a builtin vfio-pci-core
+	# against modular cxl-core (would fail to link the per-device
+	# helpers in drivers/cxl/core/passthrough.c).
+	depends on CXL_BUS=y    || VFIO_PCI_CORE=m
+	depends on CXL_REGION=y || VFIO_PCI_CORE=m
+	depends on CXL_MEM=y    || VFIO_PCI_CORE=m
+	select CXL_VFIO_PASSTHROUGH
+	help
+	  Support CXL Type-2 (HDM-D, HDM-DB) accelerator device passthrough
+	  to a KVM guest.  When this option is enabled, vfio-pci-core
+	  probes the CXL Register Locator DVSEC at PCI bind time, acquires
+	  a cxl_memdev and autoregion via devm_cxl_probe_mem(), and
+	  exposes two additional VFIO regions to userspace: a mappable
+	  HDM memory region for the device's HPA range, and a COMP_REGS
+	  shadow region forwarding HDM Decoder Capability accesses
+	  through the cxl-core register-virtualization helpers added by
+	  drivers/cxl/core/passthrough.c.
+
+	  Devices that do not advertise a CXL Device DVSEC fall back to
+	  plain vfio-pci behaviour.  Confirmed-CXL devices whose host
+	  firmware did not commit an HDM decoder, or whose cxl-core probe
+	  otherwise fails, do not bind to vfio-pci at all so the guest is
+	  never offered a half-initialised CXL device.
+
+	  Scope: firmware-committed, single-decoder, no-interleave.
+
+	  Say Y to support CXL Type-2 device passthrough.

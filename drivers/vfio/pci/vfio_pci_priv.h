@@ -105,6 +105,27 @@ static inline void vfio_pci_zdev_close_device(struct vfio_pci_core_device *vdev)
 {}
 #endif
 
+#ifdef CONFIG_VFIO_PCI_CXL
+int  vfio_pci_cxl_acquire(struct vfio_pci_core_device *vdev);
+void vfio_pci_cxl_release(struct vfio_pci_core_device *vdev);
+int  vfio_pci_cxl_open(struct vfio_pci_core_device *vdev);
+void vfio_pci_cxl_close(struct vfio_pci_core_device *vdev);
+#else
+static inline int vfio_pci_cxl_acquire(struct vfio_pci_core_device *vdev)
+{
+	return -ENODEV;
+}
+
+static inline void vfio_pci_cxl_release(struct vfio_pci_core_device *vdev) { }
+
+static inline int vfio_pci_cxl_open(struct vfio_pci_core_device *vdev)
+{
+	return 0;
+}
+
+static inline void vfio_pci_cxl_close(struct vfio_pci_core_device *vdev) { }
+#endif
+
 static inline bool vfio_pci_is_vga(struct pci_dev *pdev)
 {
 	return (pdev->class >> 8) == PCI_CLASS_DISPLAY_VGA;

@@ -603,10 +603,25 @@ int vfio_pci_core_enable(struct vfio_pci_core_device *vdev)
 	if (!vfio_vga_disabled() && vfio_pci_is_vga(pdev))
 		vdev->has_vga = true;
 
+	/*
+	 * Register CXL VFIO regions before mapping BARs.  CXL region
+	 * registration only list-appends to vdev->region[]; it has no
+	 * dependency on vdev->barmap[] being populated.  Running it
+	 * first means a failure here unwinds through out_free_config
+	 * without leaking BAR ioremaps or selected-region requests
+	 * (those are released by vfio_pci_core_disable(), which is not
+	 * called for a failed open).
+	 */
+	ret = vfio_pci_cxl_open(vdev);
+	if (ret)
+		goto out_free_config;
+
 	vfio_pci_core_map_bars(vdev);
 
 	return 0;
 
+out_free_config:
+	vfio_config_free(vdev);
 out_free_zdev:
 	vfio_pci_zdev_close_device(vdev);
 out_free_state:
@@ -700,6 +715,7 @@ void vfio_pci_core_disable(struct vfio_pci_core_device *vdev)
 
 	vdev->needs_reset = true;
 
+	vfio_pci_cxl_close(vdev);
 	vfio_pci_zdev_close_device(vdev);
 
 	/*
@@ -2243,6 +2259,10 @@ int vfio_pci_core_register_device(struct vfio_pci_core_device *vdev)
 	if (ret)
 		goto out_vf;
 
+	ret = vfio_pci_cxl_acquire(vdev);
+	if (ret && ret != -ENODEV)
+		goto out_vga;
+
 	vfio_pci_probe_power_state(vdev);
 
 	/*
@@ -2271,6 +2291,9 @@ out_power:
 		pm_runtime_get_noresume(dev);
 
 	pm_runtime_forbid(dev);
+	vfio_pci_cxl_release(vdev);
+out_vga:
+	vfio_pci_vga_uninit(vdev);
 out_vf:
 	vfio_pci_vf_uninit(vdev);
 	return ret;
@@ -2285,6 +2308,7 @@ void vfio_pci_core_unregister_device(struct vfio_pci_core_device *vdev)
 
 	vfio_pci_vf_uninit(vdev);
 	vfio_pci_vga_uninit(vdev);
+	vfio_pci_cxl_release(vdev);
 
 	if (!disable_idle_d3)
 		pm_runtime_get_noresume(&vdev->pdev->dev);
