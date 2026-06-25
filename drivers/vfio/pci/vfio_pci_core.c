@@ -502,6 +502,23 @@ static void vfio_pci_core_map_bars(struct vfio_pci_core_device *vdev)
 		if (!pci_resource_len(pdev, i))
 			continue;
 
+		/*
+		 * cxl-core already holds request_mem_region() on the CXL
+		 * component register sub-range of this BAR.  Skip the
+		 * full-BAR request so we do not collide with that
+		 * sub-region; vfio still owns the BAR via the driver
+		 * binding and the iomap below succeeds without a region
+		 * claim.
+		 */
+		if (vdev->cxl && bar == vfio_pci_cxl_get_component_reg_bar(vdev)) {
+			vdev->barmap[bar] = pci_iomap(pdev, bar, 0);
+			if (!vdev->barmap[bar]) {
+				pci_dbg(pdev, "Failed to iomap region %d\n", bar);
+				vdev->barmap[bar] = IOMEM_ERR_PTR(-ENOMEM);
+			}
+			continue;
+		}
+
 		if (pci_request_selected_regions(pdev, 1 << bar, "vfio")) {
 			pci_dbg(pdev, "Failed to reserve region %d\n", bar);
 			vdev->barmap[bar] = IOMEM_ERR_PTR(-EBUSY);
@@ -702,7 +719,10 @@ void vfio_pci_core_disable(struct vfio_pci_core_device *vdev)
 		if (IS_ERR_OR_NULL(vdev->barmap[bar]))
 			continue;
 		pci_iounmap(pdev, vdev->barmap[bar]);
-		pci_release_selected_regions(pdev, 1 << bar);
+		/* Mirror the asymmetric setup-time skip in map_bars(). */
+		if (!(vdev->cxl &&
+		      i == vfio_pci_cxl_get_component_reg_bar(vdev)))
+			pci_release_selected_regions(pdev, 1 << bar);
 		vdev->barmap[bar] = NULL;
 	}
 
@@ -1052,6 +1072,16 @@ static int vfio_pci_ioctl_get_info(struct vfio_pci_core_device *vdev,
 	info.num_regions = VFIO_PCI_NUM_REGIONS + vdev->num_regions;
 	info.num_irqs = VFIO_PCI_NUM_IRQS;
 
+	if (vdev->cxl) {
+		ret = vfio_pci_cxl_get_info(vdev, &caps);
+		if (ret) {
+			pci_warn(vdev->pdev,
+				 "Failed to add CXL info capability\n");
+			return ret;
+		}
+		info.flags |= VFIO_DEVICE_FLAGS_CXL;
+	}
+
 	ret = vfio_pci_info_zdev_add_caps(vdev, &caps);
 	if (ret && ret != -ENODEV) {
 		pci_warn(vdev->pdev,
@@ -1099,6 +1129,12 @@ static int vfio_pci_ioctl_get_region_info(struct vfio_pci_core_device *vdev,
 
 	if (info.argsz < minsz)
 		return -EINVAL;
+
+	if (vdev->cxl) {
+		ret = vfio_pci_cxl_get_region_info(vdev, info, caps);
+		if (ret != -ENOTTY)
+			return ret;
+	}
 
 	switch (info.index) {
 	case VFIO_PCI_CONFIG_REGION_INDEX:
@@ -1834,6 +1870,12 @@ int vfio_pci_core_mmap(struct vfio_device *core_vdev, struct vm_area_struct *vma
 	req_start = pgoff << PAGE_SHIFT;
 
 	if (req_start + req_len > phys_len)
+		return -EINVAL;
+
+	/* Block mmap of the CXL component register block. */
+	if (vdev->cxl &&
+	    index == vfio_pci_cxl_get_component_reg_bar(vdev) &&
+	    vfio_pci_cxl_mmap_overlaps_comp_regs(vdev, req_start, req_len))
 		return -EINVAL;
 
 	/*

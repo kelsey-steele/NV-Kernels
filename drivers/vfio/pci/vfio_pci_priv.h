@@ -110,6 +110,23 @@ int  vfio_pci_cxl_acquire(struct vfio_pci_core_device *vdev);
 void vfio_pci_cxl_release(struct vfio_pci_core_device *vdev);
 int  vfio_pci_cxl_open(struct vfio_pci_core_device *vdev);
 void vfio_pci_cxl_close(struct vfio_pci_core_device *vdev);
+size_t vfio_pci_cxl_config_boundary(struct vfio_pci_core_device *vdev,
+				    loff_t pos);
+ssize_t vfio_pci_cxl_config_rw(struct vfio_pci_core_device *vdev,
+			       loff_t pos, size_t count, __le32 *val,
+			       bool iswrite);
+int vfio_pci_cxl_get_info(struct vfio_pci_core_device *vdev,
+			  struct vfio_info_cap *caps);
+int vfio_pci_cxl_get_region_info(struct vfio_pci_core_device *vdev,
+				 struct vfio_region_info *info,
+				 struct vfio_info_cap *caps);
+u8   vfio_pci_cxl_get_component_reg_bar(struct vfio_pci_core_device *vdev);
+bool vfio_pci_cxl_get_comp_reg_range(struct vfio_pci_core_device *vdev,
+				     size_t *start, size_t *end);
+bool vfio_pci_cxl_mmap_overlaps_comp_regs(struct vfio_pci_core_device *vdev,
+					  u64 req_start, u64 req_len);
+bool vfio_pci_cxl_bar_overlaps_comp_regs(struct vfio_pci_core_device *vdev,
+					 int bar, u64 start, u64 len);
 #else
 static inline int vfio_pci_cxl_acquire(struct vfio_pci_core_device *vdev)
 {
@@ -124,6 +141,61 @@ static inline int vfio_pci_cxl_open(struct vfio_pci_core_device *vdev)
 }
 
 static inline void vfio_pci_cxl_close(struct vfio_pci_core_device *vdev) { }
+
+static inline size_t
+vfio_pci_cxl_config_boundary(struct vfio_pci_core_device *vdev, loff_t pos)
+{
+	return SIZE_MAX;
+}
+
+static inline ssize_t
+vfio_pci_cxl_config_rw(struct vfio_pci_core_device *vdev, loff_t pos,
+		       size_t count, __le32 *val, bool iswrite)
+{
+	return -ENOENT;
+}
+
+static inline int
+vfio_pci_cxl_get_info(struct vfio_pci_core_device *vdev,
+		      struct vfio_info_cap *caps)
+{
+	return 0;
+}
+
+static inline int
+vfio_pci_cxl_get_region_info(struct vfio_pci_core_device *vdev,
+			     struct vfio_region_info *info,
+			     struct vfio_info_cap *caps)
+{
+	return -ENOTTY;
+}
+
+static inline u8
+vfio_pci_cxl_get_component_reg_bar(struct vfio_pci_core_device *vdev)
+{
+	return U8_MAX;
+}
+
+static inline bool
+vfio_pci_cxl_get_comp_reg_range(struct vfio_pci_core_device *vdev,
+				size_t *start, size_t *end)
+{
+	return false;
+}
+
+static inline bool
+vfio_pci_cxl_mmap_overlaps_comp_regs(struct vfio_pci_core_device *vdev,
+				     u64 req_start, u64 req_len)
+{
+	return false;
+}
+
+static inline bool
+vfio_pci_cxl_bar_overlaps_comp_regs(struct vfio_pci_core_device *vdev,
+				    int bar, u64 start, u64 len)
+{
+	return false;
+}
 #endif
 
 static inline bool vfio_pci_is_vga(struct pci_dev *pdev)

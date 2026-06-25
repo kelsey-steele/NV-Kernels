@@ -1897,8 +1897,15 @@ static ssize_t vfio_config_do_rw(struct vfio_pci_core_device *vdev, char __user 
 	/*
 	 * Chop accesses into aligned chunks containing no more than a
 	 * single capability.  Caller increments to the next chunk.
+	 *
+	 * For CXL Type-2 devices also clip at the CXL Device DVSEC body
+	 * boundary so the generic perm-bits path handles the DVSEC
+	 * header bytes and the CXL hook handles the body bytes; without
+	 * this clip a 32-bit access at dvsec + 0x08 would span the
+	 * generic Header2 word and the CXL CAPABILITY word.
 	 */
 	count = min(count, vfio_pci_cap_remaining_dword(vdev, *ppos));
+	count = min(count, vfio_pci_cxl_config_boundary(vdev, *ppos));
 	if (count >= 4 && !(*ppos % 4))
 		count = 4;
 	else if (count >= 2 && !(*ppos % 2))
@@ -1907,6 +1914,30 @@ static ssize_t vfio_config_do_rw(struct vfio_pci_core_device *vdev, char __user 
 		count = 1;
 
 	ret = count;
+
+	/*
+	 * Give the CXL Type-2 hook first claim on this access: if the
+	 * range lies inside the CXL Device DVSEC body, forward it to
+	 * cxl-core's register-virtualization helpers instead of the
+	 * standard perm-bits path.  -ENOENT means "not for me; use the
+	 * default path"; any other negative value is a hard error.
+	 */
+	if (vdev->cxl) {
+		__le32 le_val = 0;
+		ssize_t cxl_ret;
+
+		if (iswrite && copy_from_user(&le_val, buf, count))
+			return -EFAULT;
+		cxl_ret = vfio_pci_cxl_config_rw(vdev, *ppos, count, &le_val,
+						 iswrite);
+		if (cxl_ret >= 0) {
+			if (!iswrite && copy_to_user(buf, &le_val, count))
+				return -EFAULT;
+			return cxl_ret;
+		}
+		if (cxl_ret != -ENOENT)
+			return cxl_ret;
+	}
 
 	cap_id = vdev->pci_config_map[*ppos];
 
