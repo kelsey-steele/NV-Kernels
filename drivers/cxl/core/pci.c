@@ -843,6 +843,8 @@ static int cxl_rcrb_get_comp_regs(struct pci_dev *pdev,
 	*map = (struct cxl_register_map) {
 		.host = &pdev->dev,
 		.resource = CXL_RESOURCE_NONE,
+		.bar_index = 0xff,
+		.bar_offset = 0,
 	};
 
 	component_reg_phys = cxl_rcd_component_reg_phys(&pdev->dev, dport);

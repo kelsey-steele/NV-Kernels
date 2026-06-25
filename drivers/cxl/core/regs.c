@@ -286,11 +286,45 @@ static bool cxl_decode_regblock(struct pci_dev *pdev, u32 reg_lo, u32 reg_hi,
 		return false;
 	}
 
+	if (bar >= 0 && bar <= 5) {
+		map->bar_index = (u8)bar;
+		map->bar_offset = offset;
+	} else {
+		map->bar_index = 0xff;
+		map->bar_offset = 0;
+	}
+
 	map->reg_type = reg_type;
 	map->resource = pci_resource_start(pdev, bar) + offset;
 	map->max_size = pci_resource_len(pdev, bar) - offset;
 	return true;
 }
+
+/**
+ * cxl_regblock_get_bar_info - read BAR index and offset for a regblock
+ * @map: regblock map produced by cxl_find_regblock()
+ * @bar_index: out, PCI BAR index (0-5)
+ * @bar_offset: out, byte offset of the regblock within the BAR
+ *
+ * Exported for cxl drivers (vfio-cxl, in-kernel accelerator drivers)
+ * that need to map the regblock via pci_iomap() or report the BAR to
+ * userspace.
+ *
+ * Return: 0 on success, -EINVAL if the regblock is not BAR-backed or
+ * if any out pointer is NULL.
+ */
+int cxl_regblock_get_bar_info(const struct cxl_register_map *map,
+			      u8 *bar_index, resource_size_t *bar_offset)
+{
+	if (!map || !bar_index || !bar_offset)
+		return -EINVAL;
+	if (map->bar_index > 5)
+		return -EINVAL;
+	*bar_index = map->bar_index;
+	*bar_offset = map->bar_offset;
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(cxl_regblock_get_bar_info, "CXL");
 
 /*
  * __cxl_find_regblock_instance() - Locate a register block or count instances by type / index
