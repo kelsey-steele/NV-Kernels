@@ -1131,7 +1131,7 @@ static int vfio_pci_ioctl_get_region_info(struct vfio_pci_core_device *vdev,
 		return -EINVAL;
 
 	if (vdev->cxl) {
-		ret = vfio_pci_cxl_get_region_info(vdev, info, caps);
+		ret = vfio_pci_cxl_get_region_info(vdev, &info, &caps);
 		if (ret != -ENOTTY)
 			return ret;
 	}
