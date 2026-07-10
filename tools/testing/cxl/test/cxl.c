@@ -1102,7 +1102,7 @@ static bool mock_init_hdm_decoder(struct cxl_decoder *cxld)
 	/* Simulate missing cxl_mem.4 configuration */
 	if (hb0 && pdev->id == 4 && cxld->id == 0 && fail_autoassemble) {
 		default_mock_decoder(cxld);
-		return;
+		return false;
 	}
 
 	base = window->base_hpa;
