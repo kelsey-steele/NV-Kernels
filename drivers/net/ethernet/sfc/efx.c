@@ -1242,6 +1242,7 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
 
  fail3:
 	efx_fini_io(efx);
+	efx_cxl_exit(probe_data);
  fail2:
 	efx_fini_struct(efx);
  fail1:
